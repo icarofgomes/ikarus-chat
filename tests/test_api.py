@@ -6,7 +6,7 @@ from portfolio_chat.corpus import Section
 from portfolio_chat.gate import Gate
 from portfolio_chat.index import Index
 from portfolio_chat.main import create_app
-from portfolio_chat.openrouter import Completion, EmbeddingBatch
+from portfolio_chat.providers import Completion, EmbeddingBatch
 from portfolio_chat.service import ChatService
 from tests.settings_factory import make_settings
 

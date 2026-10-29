@@ -6,7 +6,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 
 from portfolio_chat.gate import Gate, GateError
 from portfolio_chat.index import Index
-from portfolio_chat.openrouter import OpenRouter, OpenRouterError
+from portfolio_chat.providers import ModelError, build_provider
 from portfolio_chat.prompt import unavailable_answer
 from portfolio_chat.schemas import ChatRequest, ChatResponse
 from portfolio_chat.service import ChatService, NotReady
@@ -22,7 +22,7 @@ def build_service(settings: Settings) -> ChatService:
         settings,
         Index(path),
         Gate(path, settings),
-        OpenRouter(settings),
+        build_provider(settings),
     )
 
 
@@ -60,7 +60,7 @@ def create_app(service: ChatService | None = None) -> FastAPI:
         except NotReady as error:
             logger.info("chat rejected status=503")
             raise HTTPException(status_code=503, detail={"answer": NOT_READY}) from error
-        except OpenRouterError as error:
+        except ModelError as error:
             logger.info("chat rejected status=502")
             raise HTTPException(
                 status_code=502,

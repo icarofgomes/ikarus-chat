@@ -13,7 +13,7 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Fill `OPENROUTER_API_KEY` and `CHAT_SHARED_SECRET` in `.env`. Then build the index once. Repeat only when the markdown changes.
+Fill `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `CHAT_SHARED_SECRET` in `.env`. Then build the index once. Repeat when the markdown changes, and also when the embedding model changes.
 
 ```bash
 python scripts/ingest.py
@@ -40,10 +40,11 @@ A follow-up such as "E na SeguroBet?" is embedded together with the previous use
 
 ## Limits
 
-- 400 characters per message, 8 user turns, 16 messages.
+- 400 characters on each question. A previous answer may be up to 2,000 characters.
+- 8 user turns, 16 messages.
 - 6 requests every 10 minutes and 20 per day, per IP.
-- A daily token budget, checked before the model call.
-- Answers are capped at 400 tokens. Reasoning is off.
+- Global token budgets, reserved before the model call: 15,000 per minute, 60,000 per hour, and 200,000 per day.
+- Answers are capped at 160 tokens. The OpenRouter fallback keeps reasoning off.
 - Below the similarity floor, the service returns a fixed sentence and does not call the chat model.
 - On the 8th turn the answer points to WhatsApp. The next turn is refused.
 
@@ -51,12 +52,14 @@ The counters live in the same SQLite file as the index. They reset when the inst
 
 ## Models
 
-Both calls use OpenRouter. The ids are environment variables:
+OpenAI is the primary provider for the embedding and the answer. OpenRouter runs only when that call fails. With no `OPENAI_API_KEY`, every call goes straight to OpenRouter.
 
-- `EMBED_MODEL` defaults to `baai/bge-m3`
-- `CHAT_MODEL` defaults to `deepseek/deepseek-v4-flash`
+- `OPENAI_EMBED_MODEL` defaults to `text-embedding-3-small`
+- `OPENAI_CHAT_MODEL` defaults to `gpt-4o-mini`
+- `OPENROUTER_EMBED_MODEL` defaults to `openai/text-embedding-3-small`
+- `OPENROUTER_CHAT_MODEL` defaults to `deepseek/deepseek-v4-flash`
 
-Changing either id does not require a code change. Rebuild the index after changing the embedding model.
+The two embedding ids must stay the same model. A fallback vector from another model does not match the index. Changing either embedding id requires a rebuild.
 
 ## Cloud Run
 
@@ -64,7 +67,7 @@ Build the index locally first. The image copies `data/index.sqlite`.
 
 Deploy with minimum instances at 0 and request-based billing, so an idle service does not keep a machine running. The URL stays up. The first question after a pause waits for the container to start.
 
-Set `CHAT_SHARED_SECRET`, `OPENROUTER_API_KEY`, and the model ids as environment variables. Do not bake the key into the image.
+Set `CHAT_SHARED_SECRET`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and the model ids as environment variables. Do not bake a key into the image.
 
 ## Tests
 
@@ -72,4 +75,4 @@ Set `CHAT_SHARED_SECRET`, `OPENROUTER_API_KEY`, and the model ids as environment
 pytest
 ```
 
-The tests do not call OpenRouter.
+The tests do not call OpenAI or OpenRouter.

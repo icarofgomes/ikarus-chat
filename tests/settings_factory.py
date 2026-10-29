@@ -6,6 +6,7 @@ from portfolio_chat.settings import Settings
 def make_settings(tmp_path: Path, **overrides: object) -> Settings:
     values: dict[str, object] = {
         "chat_shared_secret": "secret",
+        "openai_api_key": "",
         "openrouter_api_key": "test-key",
         "index_path": str(tmp_path / "index.sqlite"),
         "score_floor": 0.5,

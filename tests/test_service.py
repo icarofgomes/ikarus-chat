@@ -5,7 +5,7 @@ import pytest
 from portfolio_chat.corpus import Section
 from portfolio_chat.gate import Gate, GateError
 from portfolio_chat.index import Index
-from portfolio_chat.openrouter import Completion, EmbeddingBatch, OpenRouterError
+from portfolio_chat.providers import Completion, EmbeddingBatch, ModelError
 from portfolio_chat.schemas import Message
 from portfolio_chat.service import ChatService, NotReady
 from tests.settings_factory import make_settings
@@ -25,7 +25,7 @@ class FakeModel:
 
     def complete(self, system: str, user: str) -> Completion:
         if self.fail:
-            raise OpenRouterError("down")
+            raise ModelError("down")
         self.completions += 1
         return Completion(text=self.answer, total_tokens=12)
 
@@ -89,7 +89,7 @@ def test_upstream_failure_still_counts(tmp_path: Path) -> None:
     model.fail = True
     service = _service(tmp_path, model, rate_window_max=1)
 
-    with pytest.raises(OpenRouterError):
+    with pytest.raises(ModelError):
         service.answer([Message(role="user", content="KingPanda")], "203.0.113.9")
 
     with pytest.raises(GateError):

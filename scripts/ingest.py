@@ -2,19 +2,19 @@ from pathlib import Path
 
 from portfolio_chat.corpus import split_sections
 from portfolio_chat.index import Index
-from portfolio_chat.openrouter import OpenRouter
+from portfolio_chat.providers import build_provider
 from portfolio_chat.settings import Settings
 
 
 def main() -> None:
     settings = Settings()
-    if not settings.openrouter_api_key:
-        raise SystemExit("OPENROUTER_API_KEY is required")
+    if not settings.openai_api_key and not settings.openrouter_api_key:
+        raise SystemExit("OPENAI_API_KEY or OPENROUTER_API_KEY is required")
     markdown = Path(settings.corpus_path).read_text(encoding="utf-8")
     sections = split_sections(markdown)
     if not sections:
         raise SystemExit("corpus has no sections")
-    embedded = OpenRouter(settings).embed([section.text() for section in sections])
+    embedded = build_provider(settings).embed([section.text() for section in sections])
     Index(Path(settings.index_path)).replace(sections, embedded.vectors)
     print(f"indexed {len(sections)} sections into {settings.index_path}")
 

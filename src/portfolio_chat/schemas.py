@@ -1,11 +1,14 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+USER_MAX_CHARS = 400
+REPLY_MAX_CHARS = 2_000
 
 
 class Message(BaseModel):
     role: Literal["user", "assistant"]
-    content: str = Field(max_length=400)
+    content: str
 
     @field_validator("content")
     @classmethod
@@ -14,6 +17,13 @@ class Message(BaseModel):
         if not cleaned:
             raise ValueError("empty message")
         return cleaned
+
+    @model_validator(mode="after")
+    def limit_length(self) -> "Message":
+        limit = USER_MAX_CHARS if self.role == "user" else REPLY_MAX_CHARS
+        if len(self.content) > limit:
+            raise ValueError("message is too long")
+        return self
 
 
 class ChatRequest(BaseModel):

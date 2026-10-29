@@ -61,5 +61,56 @@ def test_token_budget_is_checked_before_the_call(tmp_path: Path) -> None:
     )
     gate.record("203.0.113.8", 90)
 
-    with pytest.raises(GateError):
+    with pytest.raises(GateError) as caught:
         gate.reserve(20)
+    assert "WhatsApp" in caught.value.answer
+
+
+def test_long_assistant_reply_can_continue(tmp_path: Path) -> None:
+    gate = Gate(tmp_path / "index.sqlite", make_settings(tmp_path))
+    messages = [
+        Message(role="user", content="O que fez na SeguroBet?"),
+        Message(role="assistant", content="Atuação " * 70),
+        Message(role="user", content="E na KingPanda?"),
+    ]
+
+    gate.admit("203.0.113.8", messages)
+
+
+def test_minute_budget_blocks_the_next_reservation(tmp_path: Path) -> None:
+    gate = Gate(
+        tmp_path / "index.sqlite",
+        make_settings(tmp_path, token_minute_budget=100, token_hour_budget=10_000),
+    )
+    gate.reserve(80)
+
+    with pytest.raises(GateError) as caught:
+        gate.reserve(30)
+    assert caught.value.status_code == 429
+    assert "WhatsApp" in caught.value.answer
+
+
+def test_settled_reservation_returns_what_was_not_used(tmp_path: Path) -> None:
+    gate = Gate(
+        tmp_path / "index.sqlite",
+        make_settings(tmp_path, token_minute_budget=100, token_hour_budget=10_000),
+    )
+    gate.reserve(80)
+    gate.record("203.0.113.8", 10, reserved=80)
+
+    gate.reserve(80)
+
+
+def test_hour_budget_outlasts_the_minute(tmp_path: Path) -> None:
+    clock = {"now": datetime(2026, 10, 16, 12, tzinfo=UTC).timestamp()}
+    gate = Gate(
+        tmp_path / "index.sqlite",
+        make_settings(tmp_path, token_minute_budget=50, token_hour_budget=80),
+        clock=lambda: clock["now"],
+    )
+    gate.reserve(50)
+    clock["now"] += 61
+
+    with pytest.raises(GateError) as caught:
+        gate.reserve(40)
+    assert caught.value.status_code == 429

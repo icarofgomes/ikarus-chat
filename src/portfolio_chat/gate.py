@@ -38,8 +38,8 @@ class Gate:
         )
         self._db.execute(
             """
-            CREATE TABLE IF NOT EXISTS daily_tokens (
-                day TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS token_spend (
+                at_unix INTEGER NOT NULL,
                 tokens INTEGER NOT NULL
             )
             """
@@ -50,7 +50,12 @@ class Gate:
         if messages[-1].role != "user":
             raise GateError(too_long_answer(), 400)
         for message in messages:
-            if len(message.content) > self._settings.max_message_chars:
+            limit = (
+                self._settings.max_message_chars
+                if message.role == "user"
+                else self._settings.max_reply_chars
+            )
+            if len(message.content) > limit:
                 raise GateError(too_long_answer(), 400)
         user_turns = sum(1 for message in messages if message.role == "user")
         if user_turns > self._settings.max_turns or len(messages) > self._settings.max_messages:
@@ -67,42 +72,66 @@ class Gate:
                 "SELECT COUNT(*) FROM requests WHERE ip = ? AND at_unix >= ?",
                 (client_ip, _day_start(now)),
             )
-            spent = self._count(
-                "SELECT tokens FROM daily_tokens WHERE day = ?",
-                (_day(now),),
-            )
             if window_count >= self._settings.rate_window_max:
                 raise GateError(paused, 429)
             if daily_count >= self._settings.daily_max:
                 raise GateError(paused, 429)
-            if spent >= self._settings.daily_token_budget:
+            if self._over_budget(now, 0):
                 raise GateError(paused, 429)
 
     def reserve(self, estimated_tokens: int) -> None:
+        """Count the call before the model runs, so parallel requests share one budget."""
         now = int(self._clock())
         with self._lock:
-            spent = self._count(
-                "SELECT tokens FROM daily_tokens WHERE day = ?",
-                (_day(now),),
-            )
-        if spent + estimated_tokens > self._settings.daily_token_budget:
-            raise GateError(paused_answer(self._settings.whatsapp_url), 429)
+            if self._over_budget(now, estimated_tokens):
+                raise GateError(paused_answer(self._settings.whatsapp_url), 429)
+            self._add_tokens(now, estimated_tokens)
+            self._db.commit()
 
-    def record(self, client_ip: str, tokens: int) -> None:
+    def record(self, client_ip: str, tokens: int, *, reserved: int = 0) -> None:
+        """Replace a reservation with the real spend and count the request."""
         now = int(self._clock())
         with self._lock:
+            self._add_tokens(now, tokens - reserved)
             self._db.execute(
                 "INSERT INTO requests (ip, at_unix) VALUES (?, ?)",
                 (client_ip, now),
             )
             self._db.execute(
-                """
-                INSERT INTO daily_tokens (day, tokens) VALUES (?, ?)
-                ON CONFLICT(day) DO UPDATE SET tokens = tokens + excluded.tokens
-                """,
-                (_day(now), tokens),
+                "DELETE FROM token_spend WHERE at_unix < ?",
+                (_day_start(now) - 3_600,),
             )
             self._db.commit()
+
+    def _over_budget(self, now: int, extra: int) -> bool:
+        minute = self._spent_since(now - 60)
+        hour = self._spent_since(now - 3_600)
+        day = self._spent_since(_day_start(now))
+        if extra:
+            return (
+                minute + extra > self._settings.token_minute_budget
+                or hour + extra > self._settings.token_hour_budget
+                or day + extra > self._settings.daily_token_budget
+            )
+        return (
+            minute >= self._settings.token_minute_budget
+            or hour >= self._settings.token_hour_budget
+            or day >= self._settings.daily_token_budget
+        )
+
+    def _spent_since(self, start: int) -> int:
+        return self._count(
+            "SELECT COALESCE(SUM(tokens), 0) FROM token_spend WHERE at_unix >= ?",
+            (start,),
+        )
+
+    def _add_tokens(self, now: int, tokens: int) -> None:
+        if tokens == 0:
+            return
+        self._db.execute(
+            "INSERT INTO token_spend (at_unix, tokens) VALUES (?, ?)",
+            (now, tokens),
+        )
 
     def _count(self, sql: str, params: tuple[object, ...]) -> int:
         row = self._db.execute(sql, params).fetchone()
@@ -113,10 +142,6 @@ class Gate:
 
 def _unix_now() -> float:
     return datetime.now(UTC).timestamp()
-
-
-def _day(unix: int) -> str:
-    return datetime.fromtimestamp(unix, UTC).date().isoformat()
 
 
 def _day_start(unix: int) -> int:
