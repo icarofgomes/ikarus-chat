@@ -32,7 +32,7 @@ De dezembro de 2021 a agosto de 2022, web. Páginas e a ligação delas com o ba
 
 ## Case Juliana Camioto
 
-Entregou o produto inteiro na medida do problema. O anúncio chega no site, o clique vira conversa, a venda volta para o anúncio. O site está em https://www.julianacamioto.com.br. A vitrine apresenta a especialista, com caminho para a conversa. A conversão registra a ação no site. O funil acompanha cada etapa, até o anúncio. O painel deixa ela acompanhar a venda.
+No case da Juliana Camioto, a entrega cobre o caminho inteiro: o anúncio chega no site, o clique vira conversa e a venda volta para o anúncio. O site está em https://www.julianacamioto.com.br. A vitrine apresenta a especialista, com caminho para a conversa. A conversão registra a ação no site. O funil acompanha cada etapa, até o anúncio. O painel deixa ela acompanhar a venda.
 
 ## Sobre
 
