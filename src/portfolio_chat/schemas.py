@@ -32,3 +32,36 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
+
+
+class JobMatchRequest(BaseModel):
+    url: str
+    title: str
+    company: str = ""
+    text: str
+    source: Literal["search", "vagas"] = "search"
+
+    @field_validator("url", "title", "text", "company")
+    @classmethod
+    def strip_field(cls, value: str) -> str:
+        return value.strip()
+
+    @model_validator(mode="after")
+    def require_job_text(self) -> "JobMatchRequest":
+        if not self.url or not self.title or not self.text:
+            raise ValueError("url, title and text are required")
+        return self
+
+
+class Evidence(BaseModel):
+    requirement: str
+    resume_excerpt: str
+    strength: Literal["forte", "media", "fraca"]
+
+
+class JobMatchResponse(BaseModel):
+    match_percent: int
+    decision: Literal["aplicar", "talvez", "pular"]
+    evidence: list[Evidence]
+    gaps: list[str]
+    summary: str

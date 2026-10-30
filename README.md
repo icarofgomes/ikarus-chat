@@ -2,7 +2,7 @@
 
 RAG API for the public career of Icaro Ferreira Gomes. The portfolio page sends a question. This service retrieves the matching sections and asks a model to answer from those sections only.
 
-The corpus in `corpus/curriculo.md` is public on purpose. It repeats what the portfolio already shows. Internal notes, incidents, revenue, and customer data do not belong in this file: a public repository shows the markdown even when the chat is closed.
+`corpus/curriculo.md` is a public demonstration. It repeats what the portfolio already shows. The index used in production is built from `private/curriculo.md`, which stays out of git. Re-running ingest against the public file replaces that denser index.
 
 ## Run
 
@@ -13,7 +13,7 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Fill `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `CHAT_SHARED_SECRET` in `.env`. Then build the index once. Repeat when the markdown changes, and also when the embedding model changes.
+Fill `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and `CHAT_SHARED_SECRET` in `.env`. For job match, also fill `JOB_MATCH_SECRET` and `JOB_MATCH_OPENROUTER_API_KEY`. That key is the OpenRouter key already stored in OpenClaw. It is separate from the chat key. Then build the index once from `private/curriculo.md`. Repeat when that markdown changes, and also when the embedding model changes. If `private/curriculo.md` is missing, ingest stops and leaves the index untouched.
 
 ```bash
 python scripts/ingest.py
@@ -50,6 +50,14 @@ A follow-up such as "E na SeguroBet?" is embedded together with the previous use
 
 The counters live in the same SQLite file as the index. They reset when the instance sleeps. That matches a host that scales to zero.
 
+## Job match
+
+`POST /v1/job-match` scores one job against the indexed resume. The notebook sends the job text and `x-job-match-secret`. The service does not store the job.
+
+This route does not use the public chat limits, the OpenAI chat model, or `CHAT_SHARED_SECRET`. Retrieval uses `openai/text-embedding-3-small` through the job-match OpenRouter key, the same model as the index. The score comes from `deepseek/deepseek-v4-flash`. A quote counts only when it appears in a retrieved section. With no retrieved section, the route returns `pular` and does not call the chat model.
+
+If `JOB_MATCH_SECRET` or `JOB_MATCH_OPENROUTER_API_KEY` is empty, the public chat still starts and this route returns 503.
+
 ## Models
 
 OpenAI is the primary provider for the embedding and the answer. OpenRouter runs only when that call fails. With no `OPENAI_API_KEY`, every call goes straight to OpenRouter.
@@ -67,7 +75,7 @@ Build the index locally first. The image copies `data/index.sqlite`.
 
 Deploy with minimum instances at 0 and request-based billing, so an idle service does not keep a machine running. The URL stays up. The first question after a pause waits for the container to start.
 
-Set `CHAT_SHARED_SECRET`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and the model ids as environment variables. Do not bake a key into the image.
+Set `CHAT_SHARED_SECRET`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, and the model ids as environment variables. Job match also needs `JOB_MATCH_SECRET` and `JOB_MATCH_OPENROUTER_API_KEY`. Do not bake a key into the image. The image still needs `private/curriculo.md` present when ingest runs, and that file is not part of the git checkout.
 
 ## Tests
 

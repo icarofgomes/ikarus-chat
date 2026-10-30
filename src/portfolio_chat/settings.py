@@ -14,7 +14,16 @@ class Settings(BaseSettings):
     openrouter_chat_model: str = "deepseek/deepseek-v4-flash"
     chat_shared_secret: str = ""
     index_path: str = "data/index.sqlite"
-    corpus_path: str = "corpus/curriculo.md"
+    corpus_path: str = "private/curriculo.md"
+    job_match_secret: str = ""
+    job_match_openrouter_api_key: str = ""
+    job_match_embed_model: str = "openai/text-embedding-3-small"
+    job_match_chat_model: str = "deepseek/deepseek-v4-flash"
+    job_match_top_k: int = 8
+    job_match_score_floor: float = 0.35
+    job_match_max_text_chars: int = 8_000
+    job_match_max_output_tokens: int = 800
+    job_match_daily_token_budget: int = 100_000
     top_k: int = 4
     score_floor: float = 0.4
     max_message_chars: int = 400

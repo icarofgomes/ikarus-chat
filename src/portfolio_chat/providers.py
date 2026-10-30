@@ -42,6 +42,7 @@ class ChatProvider:
         chat_model: str,
         max_output_tokens: int,
         style: Literal["openai", "openrouter"],
+        json_object: bool = False,
         client: httpx.Client | None = None,
     ) -> None:
         self.name = name
@@ -49,6 +50,7 @@ class ChatProvider:
         self._chat_model = chat_model
         self._max_output_tokens = max_output_tokens
         self._style = style
+        self._json_object = json_object
         self._client = client or httpx.Client(
             base_url=base_url.rstrip("/"),
             timeout=30.0,
@@ -95,6 +97,8 @@ class ChatProvider:
         body["temperature"] = 0
         body["max_tokens"] = self._max_output_tokens
         body["reasoning"] = {"effort": "none"}
+        if self._json_object:
+            body["response_format"] = {"type": "json_object"}
         return body
 
     def _post(self, path: str, body: dict[str, object]) -> dict[str, object]:
@@ -150,6 +154,19 @@ def _openai_provider(settings: Settings) -> ChatProvider:
         chat_model=settings.openai_chat_model,
         max_output_tokens=settings.max_output_tokens,
         style="openai",
+    )
+
+
+def build_job_match_provider(settings: Settings) -> ChatProvider:
+    return ChatProvider(
+        name="job-match",
+        base_url=settings.openrouter_base_url,
+        api_key=settings.job_match_openrouter_api_key,
+        embed_model=settings.job_match_embed_model,
+        chat_model=settings.job_match_chat_model,
+        max_output_tokens=settings.job_match_max_output_tokens,
+        style="openrouter",
+        json_object=True,
     )
 
 

@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 HEADING = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 
@@ -11,6 +12,12 @@ class Section:
 
     def text(self) -> str:
         return f"{self.title}\n{self.body}"
+
+
+def load_corpus(path: Path) -> str:
+    if not path.is_file():
+        raise FileNotFoundError(f"corpus não encontrado: {path}")
+    return path.read_text(encoding="utf-8")
 
 
 def split_sections(markdown: str) -> list[Section]:
