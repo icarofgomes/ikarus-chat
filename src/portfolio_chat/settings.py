@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     job_match_top_k: int = 8
     job_match_score_floor: float = 0.35
     job_match_max_text_chars: int = 8_000
-    job_match_max_output_tokens: int = 800
+    job_match_max_output_tokens: int = 1_200
     job_match_daily_token_budget: int = 100_000
     top_k: int = 4
     score_floor: float = 0.4

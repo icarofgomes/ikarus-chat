@@ -54,7 +54,13 @@ The counters live in the same SQLite file as the index. They reset when the inst
 
 `POST /v1/job-match` scores one job against the indexed resume. The notebook sends the job text and `x-job-match-secret`. The service does not store the job.
 
-This route does not use the public chat limits, the OpenAI chat model, or `CHAT_SHARED_SECRET`. Retrieval uses `openai/text-embedding-3-small` through the job-match OpenRouter key, the same model as the index. The score comes from `deepseek/deepseek-v4-flash`. A quote counts only when it appears in a retrieved section. With no retrieved section, the route returns `pular` and does not call the chat model.
+Optional fields classify the posting before the score: `required`, `also_accepts`, `differentials`, and `exclusive`. Empty lists mean the model infers those classes from the text. Feed chrome and a line that is mostly hashtags are removed before retrieval and before the prompt.
+
+Retrieval runs two searches: the title plus those lists, and the cleaned body. Each search uses `JOB_MATCH_TOP_K`. The union keeps half of the slots for each search, then fills the rest by similarity, still capped at `JOB_MATCH_TOP_K`.
+
+The score comes from `deepseek/deepseek-v4-flash`. An axis counts when at least one excerpt appears in a retrieved section. The domain axis drops out when the posting does not ask for a sector, and the other three weights scale back to 100. The response keeps `evidence` and adds `axes`, with the score, the points, and the excerpts that were accepted. With no retrieved section, the route returns `pular` and does not call the chat model.
+
+This route does not use the public chat limits, the OpenAI chat model, or `CHAT_SHARED_SECRET`. Retrieval uses `openai/text-embedding-3-small` through the job-match OpenRouter key, the same model as the index.
 
 If `JOB_MATCH_SECRET` or `JOB_MATCH_OPENROUTER_API_KEY` is empty, the public chat still starts and this route returns 503.
 
